@@ -2,6 +2,8 @@
 
 ---
 
+## 📝 Description
+
 **ReShell** is a lightweight XOR-encrypted reverse shell and cross-platform listener toolkit designed for educational purposes and controlled environments such as penetration testing labs or home network research.
 
 ---
