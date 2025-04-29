@@ -20,7 +20,7 @@
 #### ▶️ Windows C++ Listener
 - `ListenerWin.exe`
 #### ▶️ Linux C++ Listener
-- `./listener_linux`
+- `./ListenerLinux.exe`
 #### ▶️ Python Listener (Cross-Platform)
 - `python3 ListenerPython.py`
 
@@ -29,13 +29,13 @@ This version works on any platform with Python 3 installed. It will automaticall
 ---
 
 ## 🛠️ Customization
-#### Encryption Key
-- Change the XOR_KEY constant in both ReShell and each listener to ensure encrypted traffic is correctly decrypted.
+#### 🔑 Encryption Key
+- Change the `XOR_KEY` constant in both ReShell and each listener to ensure encrypted traffic is correctly decrypted.
 
-#### Target IP & Port
+#### 🌐 Target IP & Port
 - Modify these in ReShell to set the callback destination.
 
-#### Console Output
+#### 📟 Console Output
 - All listeners print decrypted shell output and allow for typed input.
 
 ---
